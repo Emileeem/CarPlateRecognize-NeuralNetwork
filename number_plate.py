@@ -25,7 +25,6 @@ while True:
     plate_cascade = cv2.CascadeClassifier(haarcascade)  # pega o xml para ler
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # converte a imagem para a escala de cinza
 
-    _, img_bin = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)  # Binariza a imagem
 
 
     plates = plate_cascade.detectMultiScale(img_gray, 1.1, 4)  # busca as coordenadas da placa
@@ -37,7 +36,8 @@ while True:
             cv2.rectangle(img, (x, y), (x + w, y + h), (127, 187, 200), 2)
             cv2.putText(img, "Numero da Placa", (x, y - 5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 0, 255), 2)
 
-            img_roi = img_bin[y: y + h, x: x + w]
+            y_offset = int(h * 0.3)  # Reduzindo a altura em 30%
+            img_roi = img[y + y_offset: y + h, x: x + w]
             cv2.imshow("img corte", img_roi)
 
     cv2.imshow("Resultado", img)
