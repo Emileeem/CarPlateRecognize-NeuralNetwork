@@ -25,7 +25,7 @@ substitution_map = {
     'M': 'W',
     '1': 'I',
     'I': '1',
-
+    "'": ""
 }
 
 # Aplicação das substituições no texto
