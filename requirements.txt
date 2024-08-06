@@ -1,2 +1,4 @@
 opencv-python
 mysql-connector-python
+numpy
+pytesseract
