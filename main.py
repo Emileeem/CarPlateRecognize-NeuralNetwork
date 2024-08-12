@@ -4,6 +4,7 @@ import easyocr
 import mysql.connector
 import ssl
 import time
+from flask import Flask, jsonify
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -51,6 +52,20 @@ def check_plate_in_database(plate):
     result = cursor.fetchone()
     return result is not None
 
+app = Flask(__name__)
+
+last_detected_plate = None
+
+@app.route("/")
+def plate_exist():
+    global last_detected_plate
+    if last_detected_plate:
+        if check_plate_in_database(last_detected_plate):
+            return jsonify({"exists": 1})
+        else:
+            return jsonify({"exists": 0})
+    return jsonify({"exists": 0})
+
 last_detection_time = time.time()
 
 while True:
@@ -74,6 +89,7 @@ while True:
 
                 detected_text = result[-1][1] if result else ""  
                 detected_text = apply_substitutions(detected_text.upper()) 
+                
 
                 print(f"Placa detectada: {detected_text}")
 
@@ -81,9 +97,9 @@ while True:
                     if check_plate_in_database(detected_text):
                         print("Placa encontrada no banco de dados!")
                     else:
-                        print("Placa NÃO encontrada no banco de dados!")
+                        print("Placa NAO encontrada no banco de dados!")
                 else:
-                    print("Placa inválida, tentando novamente...")
+                    print("Placa invalida, tentando novamente...")
                     
                 cv2.imshow("img corte", img_roi)
 
@@ -99,3 +115,6 @@ cap.release()
 cv2.destroyAllWindows()
 cursor.close()
 db.close()
+
+if __name__ == "__main__":
+    app.run(debug=True)
