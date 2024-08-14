@@ -5,6 +5,10 @@ import mysql.connector
 import ssl
 import time
 from flask import Flask, jsonify
+import threading
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -55,6 +59,61 @@ def check_plate_in_database(plate):
 app = Flask(__name__)
 
 last_detected_plate = None
+last_detection_time = time.time()
+
+def flask_thread():
+    app.run(debug=False)  
+
+def detect_plate():
+    global last_detected_plate, last_detection_time
+    while True:
+        success, img = cap.read()
+        
+        if time.time() - last_detection_time >= 2:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  
+            plate_cascade = cv2.CascadeClassifier(haarcascade)  
+
+            plates = plate_cascade.detectMultiScale(img_gray, 1.1, 4)  
+
+            for (x, y, w, h) in plates:
+                area = w * h
+                if area > min_area:
+                    cv2.rectangle(img, (x, y), (x + w, y + h), (127, 187, 200), 2)
+                    cv2.putText(img, "Numero da Placa", (x, y - 5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 0, 255), 2)
+
+                    y_offset = int(h * 0.3) 
+                    img_roi = img[y + y_offset: y + h, x: x + w]
+                    result = reader.readtext(img_roi)
+
+                    detected_text = result[-1][1] if result else ""  
+                    detected_text = apply_substitutions(detected_text.upper()) 
+                    
+
+                    print(f"Placa detectada: {detected_text}")
+
+                    if len(detected_text) == 7 and detected_text[3].isdigit(): 
+                        last_detected_plate = detected_text
+                        if check_plate_in_database(detected_text):
+                            print("Placa encontrada no banco de dados!")
+                        else:
+                            print("Placa NAO encontrada no banco de dados!")
+                    else:
+                        print("Placa invalida, tentando novamente...")
+                        
+                    cv2.imshow("img corte", img_roi)
+
+            last_detection_time = time.time()
+            
+        cv2.imshow("Resultado", img)
+        key = cv2.waitKey(1)
+
+        if key & 0xFF == ord('q'): 
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    cursor.close()
+    db.close()
 
 @app.route("/")
 def plate_exist():
@@ -66,55 +125,12 @@ def plate_exist():
             return jsonify({"exists": 0})
     return jsonify({"exists": 0})
 
-last_detection_time = time.time()
-
-while True:
-    success, img = cap.read()
-    
-    if time.time() - last_detection_time >= 2:
-        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  
-        plate_cascade = cv2.CascadeClassifier(haarcascade)  
-
-        plates = plate_cascade.detectMultiScale(img_gray, 1.1, 4)  
-
-        for (x, y, w, h) in plates:
-            area = w * h
-            if area > min_area:
-                cv2.rectangle(img, (x, y), (x + w, y + h), (127, 187, 200), 2)
-                cv2.putText(img, "Numero da Placa", (x, y - 5), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 0, 255), 2)
-
-                y_offset = int(h * 0.3) 
-                img_roi = img[y + y_offset: y + h, x: x + w]
-                result = reader.readtext(img_roi)
-
-                detected_text = result[-1][1] if result else ""  
-                detected_text = apply_substitutions(detected_text.upper()) 
-                
-
-                print(f"Placa detectada: {detected_text}")
-
-                if len(detected_text) == 7 and detected_text[3].isdigit(): 
-                    if check_plate_in_database(detected_text):
-                        print("Placa encontrada no banco de dados!")
-                    else:
-                        print("Placa NAO encontrada no banco de dados!")
-                else:
-                    print("Placa invalida, tentando novamente...")
-                    
-                cv2.imshow("img corte", img_roi)
-
-        last_detection_time = time.time()
-        
-    cv2.imshow("Resultado", img)
-    key = cv2.waitKey(1)
-
-    if key & 0xFF == ord('q'): 
-        break
-
-cap.release()
-cv2.destroyAllWindows()
-cursor.close()
-db.close()
+@app.route("/status")
+def status():
+    return jsonify({"status": "Flask server is running", "port": 5000})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    flask_thread = threading.Thread(target=flask_thread)
+    flask_thread.start()
+
+    detect_plate()
