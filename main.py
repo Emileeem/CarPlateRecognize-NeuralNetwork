@@ -7,6 +7,7 @@ import time
 from flask import Flask, jsonify
 import threading
 import warnings
+from datetime import datetime
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -56,6 +57,21 @@ def check_plate_in_database(plate):
     result = cursor.fetchone()
     return result is not None
 
+def insert_log(carro_id, funcionario_id, hora_entrada):
+    query = "INSERT INTO Log (CarroID, FuncionarioID, HoraEntrada) VALUES (%s, %s, %s)"
+    cursor.execute(query, (carro_id, funcionario_id, hora_entrada))
+    db.commit()
+
+def get_car_and_func_info(plate):
+    query = """
+    SELECT Carro.ID AS CarroID, Funcionario.ID AS FuncionarioID
+    FROM Carro
+    INNER JOIN Funcionario ON Carro.FuncionarioID = Funcionario.ID
+    WHERE Carro.Placa = %s
+    """
+    cursor.execute(query, (plate,))
+    return cursor.fetchone()  # Retorna (carro_id, funcionario_id) ou None
+
 app = Flask(__name__)
 
 last_detected_plate = None
@@ -88,17 +104,28 @@ def detect_plate():
                     detected_text = result[-1][1] if result else ""  
                     detected_text = apply_substitutions(detected_text.upper()) 
                     
-
                     print(f"Placa detectada: {detected_text}")
 
-                    if len(detected_text) == 7 and detected_text[3].isdigit(): 
-                        last_detected_plate = detected_text
-                        if check_plate_in_database(detected_text):
-                            print("Placa encontrada no banco de dados!")
-                        else:
-                            print("Placa NAO encontrada no banco de dados!")
+                    if(last_detected_plate == detected_text):
+                        print("Placa já lida, aguardando proximo veiculo")
                     else:
-                        print("Placa invalida, tentando novamente...")
+                        if len(detected_text) == 7 and detected_text[3].isdigit(): 
+                            last_detected_plate = detected_text
+                            car_info = get_car_and_func_info(detected_text)
+                            
+                            if car_info:
+                                carro_id, funcionario_id = car_info
+                                if check_plate_in_database(detected_text):
+                                    print("Placa encontrada no banco de dados!")
+                                    current_time = datetime.now()
+                                    insert_log(carro_id, funcionario_id, current_time)
+                                    print(f"Log inserido: CarroID={carro_id}, FuncionarioID={funcionario_id}, HoraEntrada={current_time}")
+                                else:
+                                    print("Placa NAO encontrada no banco de dados!")
+                            else:
+                                print("Nenhuma informação encontrada para a placa.")
+                        else:
+                            print("Placa invalida, tentando novamente...")
                         
                     cv2.imshow("img corte", img_roi)
 
