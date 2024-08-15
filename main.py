@@ -147,10 +147,19 @@ def plate_exist():
     global last_detected_plate
     if last_detected_plate:
         if check_plate_in_database(last_detected_plate):
-            return jsonify({"exists": 1})
+            return jsonify({
+                "plate" : last_detected_plate,
+                "exists": 1
+                })
         else:
-            return jsonify({"exists": 0})
-    return jsonify({"exists": 0})
+            return jsonify({
+                "plate" : last_detected_plate,
+                "exists": 0
+                })
+    return jsonify({
+        "plate" : last_detected_plate,
+        "exists": 0
+        })
 
 @app.route("/status")
 def status():

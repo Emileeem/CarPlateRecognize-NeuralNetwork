@@ -3,3 +3,10 @@ This is a license plate recognition project, my partner and I made this project 
 
 # Reconhecimento de Placas de Carro - Rede Neural
 Esse é o meu TCC, minha dupla e eu fizemos esse projeto para reconhecer placas de carro e detectar vagas
+
+
+# Para Rodar em Windows /  To Load in Windows
+
+py -3 -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
