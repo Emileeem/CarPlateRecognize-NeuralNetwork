@@ -58,7 +58,7 @@ def check_plate_in_database(plate):
     return result is not None
 
 def insert_log(carro_id, funcionario_id, hora_entrada, data_entrada):
-    query = "INSERT INTO Log (CarroID, FuncionarioID, HoraEntrada, DataEntrada) VALUES (%s, %s, %s, %s)"
+    query = "INSERT INTO Log (CarroID, FuncionarioID, HoraEntrada, DiaEntrada) VALUES (%s, %s, %s, %s)"
     cursor.execute(query, (carro_id, funcionario_id, hora_entrada, data_entrada))
     db.commit()
 
@@ -117,10 +117,10 @@ def detect_plate():
                                 carro_id, funcionario_id = car_info
                                 if check_plate_in_database(detected_text):
                                     print("Placa encontrada no banco de dados!")
-                                    current_time = datetime.time()
-                                    current_date = datetime.date()
+                                    current_time = datetime.now().time()
+                                    current_date = datetime.now().date()
                                     insert_log(carro_id, funcionario_id, current_time, current_date)
-                                    print(f"Log inserido: CarroID={carro_id}, FuncionarioID={funcionario_id}, HoraEntrada={current_time}")
+                                    print(f"Log inserido: CarroID={carro_id}, FuncionarioID={funcionario_id}, HoraEntrada={current_time}, DiaEntrada={current_date}")
                                 else:
                                     print("Placa NAO encontrada no banco de dados!")
                             else:
