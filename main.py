@@ -4,23 +4,31 @@ import easyocr
 import mysql.connector
 import ssl
 import time
-from flask import Flask, jsonify
+from datetime import datetime
 import threading
 import warnings
-from datetime import datetime
+import firebase_admin
+from firebase_admin import credentials, db
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
-db = mysql.connector.connect(
+# Firebase conectando
+cred = credentials.Certificate('other/iot-tcc-ef560-firebase-adminsdk-9zvl6-7091569d94.json')
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://iot-tcc-ef560-default-rtdb.firebaseio.com/'
+})
+
+# Banco de dados
+db_conn = mysql.connector.connect(
     host="localhost",
     user="root",
     password="root",
     database="CarPlateDB"
 )
 
-cursor = db.cursor()
+cursor = db_conn.cursor()
 
 haarcascade = "model/haarcascade_russian_plate_number.xml"
 cap = cv2.VideoCapture(0)
@@ -60,7 +68,7 @@ def check_plate_in_database(plate):
 def insert_log(carro_id, funcionario_id, hora_entrada, data_entrada):
     query = "INSERT INTO Log (CarroID, FuncionarioID, HoraEntrada, DiaEntrada) VALUES (%s, %s, %s, %s)"
     cursor.execute(query, (carro_id, funcionario_id, hora_entrada, data_entrada))
-    db.commit()
+    db_conn.commit()
 
 def get_car_and_func_info(plate):
     query = """
@@ -72,13 +80,16 @@ def get_car_and_func_info(plate):
     cursor.execute(query, (plate,))
     return cursor.fetchone()  # Retorna (carro_id, funcionario_id) ou None
 
-app = Flask(__name__)
+def send_to_firebase(plate, exists):
+    ref = db.reference('plates')
+    ref.set({
+        'plate': plate,
+        'exists': exists,
+        'timestamp': datetime.now().isoformat()
+    })
 
 last_detected_plate = None
 last_detection_time = time.time()
-
-def flask_thread():
-    app.run(debug=False)  
 
 def detect_plate():
     global last_detected_plate, last_detection_time
@@ -121,10 +132,13 @@ def detect_plate():
                                     current_date = datetime.now().date()
                                     insert_log(carro_id, funcionario_id, current_time, current_date)
                                     print(f"Log inserido: CarroID={carro_id}, FuncionarioID={funcionario_id}, HoraEntrada={current_time}, DiaEntrada={current_date}")
+                                    send_to_firebase(detected_text, 1)
                                 else:
                                     print("Placa NAO encontrada no banco de dados!")
+                                    send_to_firebase(detected_text, 0)
                             else:
                                 print("Nenhuma informação encontrada para a placa.")
+                                send_to_firebase(detected_text, 0)
                         else:
                             print("Placa invalida, tentando novamente...")
                         
@@ -141,33 +155,7 @@ def detect_plate():
     cap.release()
     cv2.destroyAllWindows()
     cursor.close()
-    db.close()
-
-@app.route("/")
-def plate_exist():
-    global last_detected_plate
-    if last_detected_plate:
-        if check_plate_in_database(last_detected_plate):
-            return jsonify({
-                "plate" : last_detected_plate,
-                "exists": 1
-                })
-        else:
-            return jsonify({
-                "plate" : last_detected_plate,
-                "exists": 0
-                })
-    return jsonify({
-        "plate" : last_detected_plate,
-        "exists": 0
-        })
-
-@app.route("/status")
-def status():
-    return jsonify({"status": "Flask server is running", "port": 5000})
+    db_conn.close()
 
 if __name__ == "__main__":
-    flask_thread = threading.Thread(target=flask_thread)
-    flask_thread.start()
-
     detect_plate()
