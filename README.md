@@ -7,6 +7,4 @@ Esse é o meu TCC, minha dupla e eu fizemos esse projeto para reconhecer placas 
 
 # Para Rodar em Windows /  To Load in Windows
 
-py -3 -m venv .venv </br>
-.venv\Scripts\activate </br>
 pip install -r requirements.txt </br>

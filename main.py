@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 ssl._create_default_https_context = ssl._create_unverified_context
 
 # Firebase conectando
-cred = credentials.Certificate('other/iot-tcc-ef560-firebase-adminsdk-9zvl6-7091569d94.json')
+cred = credentials.Certificate('other/iot-tcc-ef560-firebase-adminsdk-9zvl6-828388655b.json')
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://iot-tcc-ef560-default-rtdb.firebaseio.com/'
 })
@@ -31,7 +31,7 @@ db_conn = mysql.connector.connect(
 cursor = db_conn.cursor()
 
 haarcascade = "model/haarcascade_russian_plate_number.xml"
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 cap.set(3, 640)  # width
 cap.set(4, 480)  # height
 
@@ -55,6 +55,7 @@ substitution_map = {
 }
 
 def apply_substitutions(text):
+    text = text.replace(" ", "")  # Remove espaços
     for key, value in substitution_map.items():
         text = text.replace(key, value)
     return text
@@ -120,7 +121,7 @@ def detect_plate():
                     if(last_detected_plate == detected_text):
                         print("Placa já lida, aguardando proximo veiculo")
                     else:
-                        if len(detected_text) == 7 and detected_text[3].isdigit(): 
+                        if len(detected_text) == 7: 
                             last_detected_plate = detected_text
                             car_info = get_car_and_func_info(detected_text)
                             
